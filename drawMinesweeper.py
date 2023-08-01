@@ -5,50 +5,53 @@ import copy
 
 class Bomb:
     def __init__(self):
-        myGif = Image.open('minebomb.gif')
-        self.spriteList = []
-        for frame in range(myGif.n_frames):  #For every frame index...
-            #Seek to the frame, convert it, add it to our sprite list
-            myGif.seek(frame)
-            fr = myGif.resize((myGif.size[0]//2, myGif.size[1]//2))
-            fr = fr.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-            fr = CMUImage(fr)
-            self.spriteList.append(fr)
+        self.bomb = Image.open('bomb.png')
+        self.bomb = CMUImage(self.bomb)
+    
+    def draw(self, left, top, width, height):
+        drawImage(self.bomb,left,top,width=width,height=height)
 
-        ##Fix for broken transparency on frame 0
-        self.spriteList.pop(0)
+class Flag:
+    def __init__(self):
+        self.flag = Image.open('flag.png')
+        self.flag = CMUImage(self.flag)
+    def draw(self, left, top, width, height):
+        drawImage(self.flag,left,top,width=width,height=height)
         
-        self.spriteCounter = 0
-    
-    def draw(self, x, y):
-        #Draw current kirb sprite
-        drawImage(self.spriteList[self.spriteCounter],
-                  x, y, align = 'center')
-        # self.spriteCounter += 1 
-        # self.spriteCounter = self.spriteCounter % len(self.spriteList)
-    
 
 class Minesweeper:
     # Drawing 2D Grid taken from chapter 5, section 3.2 in CS Academy
-    def __init__(self, rows, cols):
+    def __init__(self, rows, cols, mines):
         self.rows = rows
-        self.cols = rows
+        self.cols = cols
+        self.numberOfMines = mines
         self.boardLeft = 150
         self.boardTop = 150
         self.boardWidth = 500
         self.boardHeight = 500
         self.cellBorderWidth = 2
         self.grid = [([False] * self.cols) for row in range(self.rows)]
+        self.cells = set()
+        for row in range(len(self.grid)):
+            for col in range(len(self.grid)):
+                self.cells.add((row, col))
         self.mines = set()
         self.clickedCells = set()
         self.assignMines()
         self.bomb = Bomb()
         self.gameOver = False
+        self.flagBoxLeft = self.boardTop + self.boardWidth
+        self.flagBoxTop = 700
+        self.flagBoxWidth = 125
+        self.flagBoxHeight = 50
+        self.flag = Flag()
+        self.clickFlag = False
+        self.flagCells = set()
         print(self.mines)
     
     def assignMines(self):
         # randomly place 10 mines on the grid
-        for _ in range(10):
+        for _ in range(self.numberOfMines):
             mineRow = random.randrange(self.rows)
             mineCol = random.randrange(self.cols)
             # check if the randomly generated mine is not in the mine set
@@ -56,7 +59,7 @@ class Minesweeper:
                 self.mines.add((mineRow, mineCol))
                 self.grid[mineRow][mineCol] = True
         # if there are any mines missing, add until there are 10 mines
-        while len(self.mines) != 10:
+        while len(self.mines) != self.numberOfMines:
             mineRow = random.randrange(self.rows)
             mineCol = random.randrange(self.cols)
             if (mineRow, mineCol) not in self.mines:
@@ -82,15 +85,34 @@ class Minesweeper:
         # draw the board and the border
         self.drawBoard()
         self.drawBoardBorder()
-    
+        # draw button for flagging
+        self.drawFlagButton()
+        
+    def drawFlagButton(self):
+        # draw the box
+        drawRect(self.flagBoxLeft, self.flagBoxTop, self.flagBoxWidth, self.flagBoxHeight, fill='blue')
+        # draw a label
+        drawLabel("Click to set flag cursor", self.flagBoxLeft + self.flagBoxWidth//2, 
+                    self.flagBoxTop + self.flagBoxHeight//2, fill='white')
+        
     def drawBoard(self):
         # iterate through the length of the board
         for row in range(self.rows):
             for col in range(self.cols):
-                # draw the cell 
-                self.drawCell(row, col, None)
-                # draw a bomb if a mine is clicked
-                if (row, col) in self.clickedCells and self.grid[row][col]:
+                # debug feature to draw all the mines
+                # color = None
+                # if (row, col) in self.mines:
+                #     color = 'red'
+                # # draw the cell 
+                # self.drawCell(row, col, color)
+                
+                # draw the cell
+                self.drawCell(row, col)
+                # draw the flag on the selected cell
+                if (row, col) in self.clickedCells and (row, col) in self.flagCells:
+                    self.drawFlag(row, col)
+                # draw a bomb if a mine is clicked without the flag setting
+                elif (row, col) in self.clickedCells and self.grid[row][col]:
                     self.drawBomb(row, col)
                     self.gameOver = True
                 # otherwise, get the count and draw the count of nearest mines
@@ -102,9 +124,13 @@ class Minesweeper:
         # get dimensions
         cellLeft, cellTop = self.getCellLeftTop(row, col)
         cellWidth, cellHeight = self.getCellSize()
-        x = cellLeft + cellWidth//2
-        y = cellTop + cellHeight//2
-        self.bomb.draw(x, y)
+        self.bomb.draw(cellLeft, cellTop, cellWidth, cellWidth)
+        
+    def drawFlag(self, row, col):
+        # get dimensions
+        cellLeft, cellTop = self.getCellLeftTop(row, col)
+        cellWidth, cellHeight = self.getCellSize()
+        self.flag.draw(cellLeft, cellTop, cellWidth, cellWidth)
         
     def drawBoardBorder(self):
         # draw board border with double thickness
@@ -112,7 +138,7 @@ class Minesweeper:
            fill=None, border='black',
            borderWidth=2*self.cellBorderWidth)
     
-    def drawCell(self, row, col, fillColor):
+    def drawCell(self, row, col, fillColor=None):
         # draw the cell with specified fill color
         cellLeft, cellTop = self.getCellLeftTop(row, col)
         cellWidth, cellHeight = self.getCellSize()
@@ -148,6 +174,17 @@ class Minesweeper:
             for col in range(self.cols):
                 cellLeft, cellTop = self.getCellLeftTop(row, col)
                 cellWidth, cellHeight = self.getCellSize()
+                # check if the mouse was clicked on the cell
                 if ((cellLeft <= mouseX <= cellLeft + cellWidth) and 
                         (cellTop <= mouseY <= cellTop + cellHeight)):
                     self.clickedCells.add((row, col))
+                    # if we are clicking a flag
+                    if self.clickFlag:
+                        self.flagCells.add((row, col))
+                        self.clickFlag = False
+    
+    def checkWin(self):
+        if (self.cells - self.clickedCells == self.mines or 
+            self.flagCells == self.mines):
+            return True
+        return False
