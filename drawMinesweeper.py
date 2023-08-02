@@ -2,6 +2,7 @@ from cmu_graphics import *
 import random
 from PIL import Image
 import copy
+from minesweeperAI import *
 
 class Bomb:
     def __init__(self):
@@ -40,14 +41,24 @@ class Minesweeper:
         self.assignMines()
         self.bomb = Bomb()
         self.gameOver = False
+        # flag coords
         self.flagBoxLeft = self.boardTop + self.boardWidth
         self.flagBoxTop = 700
         self.flagBoxWidth = 125
         self.flagBoxHeight = 50
         self.flag = Flag()
+        # AI Coords
+        self.AIBoxLeft = 400
+        self.AIBoxTop = 700
+        self.AIBoxWidth = 150
+        self.AIBoxHeight = 50
+        self.AI = MinesweeperAI(9, 9)
         self.clickFlag = False
         self.flagCells = set()
         print(self.mines)
+        # print("----------------------")
+        # for row in self.grid:
+        #     print(row)
     
     def assignMines(self):
         # randomly place 10 mines on the grid
@@ -87,6 +98,15 @@ class Minesweeper:
         self.drawBoardBorder()
         # draw button for flagging
         self.drawFlagButton()
+        # draw button for AI 
+        self.drawAIButton()
+    
+    def drawAIButton(self):
+        # draw the box
+        drawRect(self.AIBoxLeft, self.AIBoxTop, self.AIBoxWidth, self.AIBoxHeight, fill='red')
+        # draw a label
+        drawLabel("Click to make an AI Move!", self.AIBoxLeft + self.AIBoxWidth//2, 
+                    self.AIBoxTop + self.AIBoxHeight//2, fill='white')
         
     def drawFlagButton(self):
         # draw the box
@@ -99,7 +119,7 @@ class Minesweeper:
         # iterate through the length of the board
         for row in range(self.rows):
             for col in range(self.cols):
-                # debug feature to draw all the mines
+                # debug feature to show all the mines
                 # color = None
                 # if (row, col) in self.mines:
                 #     color = 'red'
@@ -118,8 +138,46 @@ class Minesweeper:
                 # otherwise, get the count and draw the count of nearest mines
                 elif (row, col) in self.clickedCells and not self.grid[row][col]:
                     count = self.getNeighboringMineCount(row, col)
-                    self.drawCount(count, row, col)
+                    if count == 0:
+                        self.drawFloodFill(row, col)
+                    else:
+                        self.drawCount(count, row, col)
     
+    def drawFloodFill(self, row, col, visited=None):
+        # define a visited set
+        if visited == None:
+            visited = set()
+        # break once you are back at a cell you already visited
+        if (row, col) in visited:
+            return 
+        # add the cell to the AI's knowledge
+        self.getAICell(row, col)
+        # add the cell to the visited set
+        visited.add((row, col))
+        # first, draw the current cell as grey
+        self.drawCell(row, col, 'black')
+        # get all the neighboring cells
+        neighbors = self.getNeighboringCells(row, col)
+        # iterate through all neighbors
+        for neighbor in neighbors:
+            neighborRow, neighborCol = neighbor
+            # recursively call if the neighbor is 0
+            if self.getNeighboringMineCount(neighborRow, neighborCol) == 0:
+                self.drawFloodFill(neighborRow, neighborCol, visited)        
+        
+    def getNeighboringCells(self, row, col):
+        # iterate through all the cell's neighbors
+        # add to set if valid cell
+        neighbors = []
+        deltaValues = [-1, 0, 1]
+        for drow in deltaValues:
+            for dcol in deltaValues:
+                examinedRow = row + drow
+                examinedCol = col + dcol
+                if (0 <= examinedRow < self.rows) and (0 <= examinedCol < self.cols):
+                        neighbors.append((examinedRow, examinedCol))
+        return neighbors
+        
     def drawBomb(self, row, col):
         # get dimensions
         cellLeft, cellTop = self.getCellLeftTop(row, col)
@@ -182,6 +240,15 @@ class Minesweeper:
                     if self.clickFlag:
                         self.flagCells.add((row, col))
                         self.clickFlag = False
+                        
+    def getAICell(self, row, col):
+        for rowIndex in range(self.rows):
+            for colIndex in range(self.cols):
+                if row == rowIndex and colIndex == col:
+                    count = self.getNeighboringMineCount(row, col)
+                    self.AI.add_knowledge((row, col), count)
+                    self.clickedCells.add((row, col))
+                    break
     
     def checkWin(self):
         if (self.cells - self.clickedCells == self.mines or 
