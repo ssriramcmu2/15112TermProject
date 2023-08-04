@@ -1,9 +1,9 @@
 import random
 
-class Sentence():
+class Knowledge:
     """
     Logical statement about a Minesweeper game
-    A sentence consists of a set of board cells,
+    A knowledge statement consists of a set of board cells,
     and a count of the number of those cells which are mines.
     This class gets created only when a new cell opens up on the board upon a click.
     """
@@ -15,10 +15,10 @@ class Sentence():
     def __eq__(self, other):
         return self.cells == other.cells and self.count == other.count
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.cells} = {self.count}"
 
-    def known_mines(self):
+    def knownMines(self):
         """
         Returns the set of all cells in self.cells known to be mines.
         Returns None if there are no known mines.
@@ -30,7 +30,7 @@ class Sentence():
         else:
             return None
 
-    def known_safes(self):
+    def knownSafes(self):
         """
         Returns the set of all cells in self.cells known to be safe.
         Returns None if there are no known safes.
@@ -40,41 +40,37 @@ class Sentence():
         else:
             return None
 
-    def mark_mine(self, cell):
+    def markMine(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be a mine.
-        :arg: cell
-        updates self.cells and self.count
         """
         if cell in self.cells:
             self.cells.remove(cell)
             self.count -= 1
 
-    def mark_safe(self, cell):
+    def markSafe(self, cell):
         """
         Updates internal knowledge representation given the fact that
         a cell is known to be safe.
-        :arg: cell
-        updates self.cells and self.count
         """
         if cell in self.cells:
             self.cells.remove(cell)
 
 
-class MinesweeperAI():
+class MinesweeperAI:
     """
-    Minesweeper game player
+    Minesweeper AI player
     """
 
-    def __init__(self, height=8, width=8):
+    def __init__(self, rows, cols):
 
         # Set initial height and width
-        self.height = height
-        self.width = width
+        self.rows = rows
+        self.cols = cols
 
         # Keep track of which cells have been clicked on
-        self.moves_made = set()
+        self.movesMade = set()
 
         # Keep track of cells known to be safe or mines
         self.mines = set()
@@ -83,25 +79,25 @@ class MinesweeperAI():
         # List of sentences about the game known to be true
         self.knowledge = []
 
-    def mark_mine(self, cell):
+    def markMine(self, cell):
         """
         Marks a cell as a mine, and updates all knowledge
         to mark that cell as a mine as well.
         """
         self.mines.add(cell)
-        for sentence in self.knowledge:
-            sentence.mark_mine(cell)
+        for knowledge in self.knowledge:
+            knowledge.markMine(cell)
 
-    def mark_safe(self, cell):
+    def markSafe(self, cell):
         """
         Marks a cell as safe, and updates all knowledge
         to mark that cell as safe as well.
         """
         self.safes.add(cell)
-        for sentence in self.knowledge:
-            sentence.mark_safe(cell)
-    
-    def add_knowledge(self, cell, count):
+        for knowledge in self.knowledge:
+            knowledge.markSafe(cell)
+
+    def addKnowledge(self, cell, count):
         """
         Called when the Minesweeper board tells us, for a given
         safe cell, how many neighboring cells have mines in them.
@@ -115,136 +111,139 @@ class MinesweeperAI():
                if it can be concluded based on the AI's knowledge base
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
-
-        :arg: cell - tuple (i, j), count - int
-        updates self.mines, self.safes, self.moves_made, and self.knowledge
         """
 
         # Step 1: Mark the cell as a move that has been made
-        self.moves_made.add(cell)
+        self.movesMade.add(cell)
 
         # Step 2: Mark the cell as safe
-        self.mark_safe(cell)
+        self.markSafe(cell)
 
         # Step 3: The function should add a new sentence to the AI’s knowledge base,
         # based on the value of cell and count, to indicate that count of the cell’s neighbors are mines.
         # Be sure to only include cells whose state is still undetermined in the sentence.
-        self.append_new_sentence_to_knowledge(cell, count)
+        self.appendNewKnowledge(cell, count)
 
         # Step 4: Mark cells as safe or mines given knowledge base
-        self.mark_cells()
+        self.markCells()
 
-        # Step 5 : Optimize the sentences in the Knowledge by removing subsets.
-        self.check_for_overlapping_sentence_and_optimize_them()
+        # Step 5: Optimize the sentences in the Knowledge by removing subsets.
+        self.checkForOverlaps()
 
         # Step 6: Mark cells as safe or mines given new knowledge base
-        self.mark_cells()
+        self.markCells()
 
-        # for sentence in self.knowledge:
-        #     if len(sentence.cells):
-        #         print(f'sentence = {sentence}')
-        #
-        # print(f'List of safe moves = {self.safes}')
-        # print(f'List of mines = {self.mines}')
-
-    def mark_cells(self):
+    def markCells(self):
         """
         This method iterates through all the sentences in knowledge base.
         Marks any cells as mines or safes if they can be identified.
-        Returns None.
         """
-        for sentence in self.knowledge:
-            retrieved_safe_cells = sentence.known_safes()
-            retrieved_mine_cells = sentence.known_mines()
-            if retrieved_safe_cells:
-                for safe_cell in list(retrieved_safe_cells):
-                    if safe_cell and safe_cell not in self.safes:
-                        self.mark_safe(safe_cell)
-                        self.safes.add(tuple(safe_cell))
-            if retrieved_mine_cells:
-                for mine_cell in list(retrieved_mine_cells):
-                    if mine_cell and mine_cell not in self.mines:
-                        self.mark_mine(mine_cell)
-                        self.mines.add(tuple(mine_cell))
+        for knowledge in self.knowledge:
+            retrievedSafeCells = knowledge.knownSafes()
+            retrievedMineCells = knowledge.knownMines()
+            # iterate through copy of the cells so that we don't modify them
+            if retrievedSafeCells:
+                for safeCell in retrievedSafeCells.copy():
+                    if safeCell and safeCell not in self.safes:
+                        self.markSafe(safeCell)
+                        self.safes.add(tuple(safeCell))
+            if retrievedMineCells:
+                for mineCell in retrievedMineCells.copy():
+                    if mineCell and mineCell not in self.mines:
+                        self.markMine(mineCell)
+                        self.mines.add(tuple(mineCell))
 
-    def append_new_sentence_to_knowledge(self, cell, count):
+    def appendNewKnowledge(self, cell, count):
         """
         This method adds new sentences to knowledge
-        :arg: cell (row, column)
-        :arg: count Int
-        return None
         """
         neighbors = []
+        # get all the neighbors that are not yet known
         for i in range(cell[0] - 1, cell[0] + 2):
             for j in range(cell[1] - 1, cell[1] + 2):
-                if (i, j) == cell or (i, j) in self.moves_made or not (0 <= i < self.height and 0 <= j < self.width):
+                if (i, j) == cell or (i, j) in self.movesMade or not (0 <= i < self.rows and 0 <= j < self.cols):
                     continue
                 if (i, j) in self.safes:
                     continue
                 neighbors.append((i, j))
         if not len(neighbors):
             return None
-        new_sentence = Sentence(neighbors, count)
-        self.knowledge.append(new_sentence)
+        newKnowledge = Knowledge(neighbors, count)
+        self.knowledge.append(newKnowledge)
 
-    def check_for_overlapping_sentence_and_optimize_them(self):
+    def checkForOverlaps(self):
         """
         This method checks for overlapping sentences and optimizes them.
         If there is an overlap, trim the overlapping sentence by removing the overlapping part and reduce the
         mine count.
-        Returns None
         """
-        for current_sentence_index, current_sentence in enumerate(self.knowledge):
-            # print(f'current_sentence={current_sentence}, current_sentence_index={current_sentence_index}')
-            if not len(current_sentence.cells):
-                continue
-            for current_index in range(len(self.knowledge)):
-                if current_index == current_sentence_index or not len(self.knowledge[current_index].cells):
-                    continue
-                looping_sentence = self.knowledge[current_index]
-                # print(f'looping_sentence={looping_sentence}')
-                is_subset = current_sentence.cells.issubset(looping_sentence.cells)
-                if is_subset:
-                    # print(f'Found {current_sentence} is subset of {looping_sentence}')
-                    for cell in current_sentence.cells:
-                        looping_sentence.cells.remove(cell)
-                    looping_sentence.count -= current_sentence.count
+        index = 0  # Initialize the index variable to keep track of the current index
+        knowledge_length = len(self.knowledge)
 
-    def make_safe_move(self):
+        while index < knowledge_length:
+            # get the current sentence
+            currentKnowledge = self.knowledge[index]
+            if not len(currentKnowledge.cells):
+                index += 1  # Skip empty sentences
+                continue
+            # loop over the inner sentences
+            inner_index = 0  # Initialize the inner index to loop through the knowledge list again
+            while inner_index < knowledge_length:
+                # skip sentences that are the same as current.
+                if inner_index == index:
+                    inner_index += 1
+                    continue
+                # get the subset sentence (check if that is a subset)
+                subsetKnowledge = self.knowledge[inner_index]
+                isSubset = self.checkSubset(currentKnowledge.cells, subsetKnowledge.cells)
+                # if there is a subset, we can remove the overlap and the count
+                if isSubset:
+                    for cell in currentKnowledge.cells:
+                        subsetKnowledge.cells.remove(cell)
+                    subsetKnowledge.count -= currentKnowledge.count
+                inner_index += 1
+            index += 1
+            
+    def checkSubset(self, inner, outer):
+        """
+        This function checks if the provided inner set is a subset of the provided outer set
+        """
+        for elem in inner:
+            if elem not in outer:
+                return False
+        return True
+
+    def makeSafeMove(self):
         """
         Returns a safe cell to choose on the Minesweeper board.
         The move must be known to be safe, and not already a move
         that has been made.
 
         This function may use the knowledge in self.mines, self.safes
-        and self.moves_made, but should not modify any of those values.
+        and self.movesMade, but should not modify any of those values.
         """
 
-        for i in range(self.height):
-            for j in range(self.width):
-                current_move = (i, j)
-                if current_move not in self.moves_made and \
-                        current_move in self.safes:
-                    # print(f'returning a safe move = {current_move}')
-                    return current_move
+        for i in range(self.rows):
+            for j in range(self.cols):
+                currentMove = (i, j)
+                if currentMove not in self.movesMade and currentMove in self.safes:
+                    return currentMove
         return None
 
-    def make_random_move(self):
+    def makeRandomMove(self):
         """
         Returns a move to make on the Minesweeper board.
         Should choose randomly among cells that:
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        current_move = None
-        random_move_found = False
-        if len(self.mines) == self.height * self.width - len(self.moves_made):
+        currentMove = None
+        randomMoveFound = False
+        if len(self.mines) == self.rows * self.cols - len(self.movesMade):
             # Game over. All mines identified.
             return None
-        while not random_move_found:
-            current_move = (random.randrange(self.height), random.randrange(self.width))
-            if current_move not in self.moves_made and \
-                    current_move not in self.mines:
-                # print(f'returning a random move = {current_move}')
-                random_move_found = True
-        return current_move
+        while not randomMoveFound:
+            currentMove = (random.randrange(self.rows), random.randrange(self.cols))
+            if currentMove not in self.movesMade and currentMove not in self.mines:
+                randomMoveFound = True
+        return currentMove
