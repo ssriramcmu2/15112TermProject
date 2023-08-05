@@ -66,6 +66,7 @@ class Minesweeper:
         # initialize a set of the mines, and cells that have been clicked
         self.mines = set()
         self.clickedCells = set()
+        self.floodedCells = set()
         # assign the mines to the mine set
         self.assignMines()
         # initialize the bomb 
@@ -182,8 +183,11 @@ class Minesweeper:
                 # # draw the cell 
                 # self.drawCell(row, col, color)
                 cell = (row, col)
-                # draw the cell
-                self.drawCell(cell)
+                # draw the cell in corresponding color
+                if cell in self.floodedCells:
+                    self.drawCell(cell, 'white')
+                else:
+                    self.drawCell(cell)
                 # draw the flag on the selected cell
                 if cell in self.clickedCells and cell in self.flagCells:
                     self.drawFlag(cell)
@@ -207,28 +211,21 @@ class Minesweeper:
         'clears' all the cells by drawing them as white, to make the game easier.
         Takes in a specific cell given by (row, col) as input.
         """
-        # define a visited set
-        if visited == None:
-            visited = set()
-        # break once you are back at a cell you already visited
-        if cell in visited:
-            return 
+        if cell in self.floodedCells:
+            return
         # add the cell to the AI's knowledge
         self.getAICell(cell)
+        # if the cell is 0, add to clicked and break
+        if self.getNeighboringMineCount(cell) != 0:
+            self.clickedCells.add(cell)
+            return
         # add the cell to the visited set
-        visited.add(cell)
-        # first, draw the current cell as white
-        self.drawCell(cell, 'white')
+        self.floodedCells.add(cell)
         # get all the neighboring cells
         neighbors = self.getNeighboringCells(cell)
         # iterate through all neighbors
         for neighbor in neighbors:
-            # recursively call if the neighbor is 0
-            if self.getNeighboringMineCount(neighbor) == 0:
-                self.drawFloodFill(neighbor, visited) 
-            else:
-                self.clickedCells.add(neighbor)
-                self.getAICell(neighbor)
+            self.drawFloodFill(neighbor)
             
     def getNeighboringCells(self, cell):
         """

@@ -1,5 +1,12 @@
 import random
 
+"""   
+Citations: (Used these sources to get an idea on how to incorporate AI into the project)
+    http://nebula.wsimg.com/8ecbfd87953e91c5b969c020b63bfc5c?AccessKeyId=1AF96B41F86A131EDF19&disposition=0&alloworigin=1
+    https://github.com/aditya1702/Machine-Learning-and-Data-Science/blob/master/Minesweeper%20AI%20Bot/Minesweeper.pdf
+    https://cs50.harvard.edu/extension/ai/2020/spring/projects/1/minesweeper/
+"""
+
 class Knowledge:
     """
     Knowledge statement about a Minesweeper game that consists of a 
@@ -59,9 +66,6 @@ class MinesweeperAI:
     """
     This class represents the AI player, which will make smart moves as the game progresses and new Knowledge is attained.
     
-    Citations: (Used these sources to help generate an algorithm)
-    http://nebula.wsimg.com/8ecbfd87953e91c5b969c020b63bfc5c?AccessKeyId=1AF96B41F86A131EDF19&disposition=0&alloworigin=1
-    https://github.com/aditya1702/Machine-Learning-and-Data-Science/blob/master/Minesweeper%20AI%20Bot/Minesweeper.pdf
     """
 
     def __init__(self, rows, cols):
