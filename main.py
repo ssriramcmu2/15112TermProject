@@ -6,7 +6,7 @@ def onAppStart(app):
     app.message = "Press r to restart!"
     app.gameOver = False
     app.minesweeper = Minesweeper(9, 9, 10)
-    app.gameStart = False
+    app.gameStart = False 
     app.textSize = 60
     app.textChange = 10
     app.AIClicked = False
@@ -14,7 +14,7 @@ def onAppStart(app):
     app.textShown = True
     app.messageSize = 30
     app.AIGoingRandomMove = False
-    app.setMaxShapeCount(10000)
+    app.setMaxShapeCount(5000)
     
 # welcome screen
 

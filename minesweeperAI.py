@@ -2,10 +2,8 @@ import random
 
 class Knowledge:
     """
-    Logical statement about a Minesweeper game
-    A knowledge statement consists of a set of board cells,
-    and a count of the number of those cells which are mines.
-    This class gets created only when a new cell opens up on the board upon a click.
+    Knowledge statement about a Minesweeper game that consists of a 
+    set of board cells and the count of those cells that are mines. 
     """
 
     def __init__(self, cells, count):
@@ -20,9 +18,9 @@ class Knowledge:
 
     def knownMines(self):
         """
-        Returns the set of all cells in self.cells known to be mines.
-        Returns None if there are no known mines.
+        Returns a set of all cells that are known to be mines
         """
+        # if the amount of cells in the statement equals the count, then all the cells are mines
         if self.count == 0 or not len(self.cells):
             return None
         if len(self.cells) == self.count:
@@ -32,9 +30,9 @@ class Knowledge:
 
     def knownSafes(self):
         """
-        Returns the set of all cells in self.cells known to be safe.
-        Returns None if there are no known safes.
+        Returns a set of all cells that are known to be safe
         """
+        # if the count is 0, then all the cells are safe.
         if self.count == 0:
             return self.cells
         else:
@@ -42,8 +40,8 @@ class Knowledge:
 
     def markMine(self, cell):
         """
-        Updates internal knowledge representation given the fact that
-        a cell is known to be a mine.
+        Marks a cell as a mine in a knowledge statement.
+        Decrement the count of the cells in the statement that are mines. 
         """
         if cell in self.cells:
             self.cells.remove(cell)
@@ -51,8 +49,7 @@ class Knowledge:
 
     def markSafe(self, cell):
         """
-        Updates internal knowledge representation given the fact that
-        a cell is known to be safe.
+        Marks a cell as safe in a knowledge statement.
         """
         if cell in self.cells:
             self.cells.remove(cell)
@@ -60,15 +57,15 @@ class Knowledge:
 
 class MinesweeperAI:
     """
-    This class represents the AI player, which will make smart moves as the game progresses and new Knowledge is attained. 
+    This class represents the AI player, which will make smart moves as the game progresses and new Knowledge is attained.
+    
+    Citations: (Used these sources to help generate an algorithm)
+    http://nebula.wsimg.com/8ecbfd87953e91c5b969c020b63bfc5c?AccessKeyId=1AF96B41F86A131EDF19&disposition=0&alloworigin=1
+    https://github.com/aditya1702/Machine-Learning-and-Data-Science/blob/master/Minesweeper%20AI%20Bot/Minesweeper.pdf
     """
 
     def __init__(self, rows, cols):
-
-        # Set initial rows and cols
-        self.rows = rows
-        self.cols = cols
-
+        
         # Keep track of which cells have been clicked on
         self.movesMade = set()
 
@@ -76,26 +73,12 @@ class MinesweeperAI:
         self.mines = set()
         self.safes = set()
 
-        # List of knowledge statements about the game known to be true
+        # List of knowledge statements - AI's knowledge base
         self.knowledge = []
-
-    def markMine(self, cell):
-        """
-        Marks a cell as a mine, and updates all knowledge
-        to mark that cell as a mine as well.
-        """
-        self.mines.add(cell)
-        for knowledge in self.knowledge:
-            knowledge.markMine(cell)
-
-    def markSafe(self, cell):
-        """
-        Marks a cell as safe, and updates all knowledge
-        to mark that cell as safe as well.
-        """
-        self.safes.add(cell)
-        for knowledge in self.knowledge:
-            knowledge.markSafe(cell)
+        
+        # Set initial rows and cols
+        self.rows = rows
+        self.cols = cols
 
     def addKnowledge(self, cell, count):
         """
@@ -129,6 +112,25 @@ class MinesweeperAI:
         # Step 6: Mark cells as safe or mines given new knowledge base
         self.markCells()
 
+
+    def markMine(self, cell):
+        """
+        Marks a cell as a mine, and updates all knowledge
+        to mark that cell as a mine as well.
+        """
+        self.mines.add(cell)
+        for knowledge in self.knowledge:
+            knowledge.markMine(cell)
+
+    def markSafe(self, cell):
+        """
+        Marks a cell as safe, and updates all knowledge
+        to mark that cell as safe as well.
+        """
+        self.safes.add(cell)
+        for knowledge in self.knowledge:
+            knowledge.markSafe(cell)
+
     def markCells(self):
         """
         This method iterates through all the knowledge in knowledge base.
@@ -151,7 +153,7 @@ class MinesweeperAI:
 
     def appendNewKnowledge(self, cell, count):
         """
-        This method adds new knowledge to knowledge
+        This method adds new knowledge to knowledge.
         """
         neighbors = []
         # get all the neighbors that are not yet known
@@ -216,7 +218,6 @@ class MinesweeperAI:
         The move must be known to be safe, and not already a move
         that has been made.
         """
-
         for i in range(self.rows):
             for j in range(self.cols):
                 currentMove = (i, j)

@@ -197,9 +197,9 @@ class Minesweeper:
                     # if the count is 0, floodfill the other neighbors that are 0
                     if count == 0:
                         self.drawFloodFill(cell)
-                    else:
+                    else:   
                         self.drawCount(count, cell)
-    
+                        
     def drawFloodFill(self, cell, visited=None):
         """
         This function is called when a specific cell is clicked, and has a count of 0.
@@ -217,7 +217,7 @@ class Minesweeper:
         self.getAICell(cell)
         # add the cell to the visited set
         visited.add(cell)
-        # first, draw the current cell as grey
+        # first, draw the current cell as white
         self.drawCell(cell, 'white')
         # get all the neighboring cells
         neighbors = self.getNeighboringCells(cell)
@@ -225,8 +225,11 @@ class Minesweeper:
         for neighbor in neighbors:
             # recursively call if the neighbor is 0
             if self.getNeighboringMineCount(neighbor) == 0:
-                self.drawFloodFill(neighbor, visited)        
-        
+                self.drawFloodFill(neighbor, visited) 
+            else:
+                self.clickedCells.add(neighbor)
+                self.getAICell(neighbor)
+            
     def getNeighboringCells(self, cell):
         """
         Helper function that returns a list of all the neighbors of a cell.
@@ -375,7 +378,6 @@ class Minesweeper:
         """
         # return True if the win condition is satisfied
         if (self.cells - self.clickedCells == self.mines or 
-            self.flagCells == self.mines or
-            self.mines == self.AI.mines):
+            self.flagCells == self.mines):
             return True
         return False
