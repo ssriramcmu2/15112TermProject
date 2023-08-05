@@ -60,12 +60,12 @@ class Knowledge:
 
 class MinesweeperAI:
     """
-    Minesweeper AI player
+    This class represents the AI player, which will make smart moves as the game progresses and new Knowledge is attained. 
     """
 
     def __init__(self, rows, cols):
 
-        # Set initial height and width
+        # Set initial rows and cols
         self.rows = rows
         self.cols = cols
 
@@ -76,7 +76,7 @@ class MinesweeperAI:
         self.mines = set()
         self.safes = set()
 
-        # List of sentences about the game known to be true
+        # List of knowledge statements about the game known to be true
         self.knowledge = []
 
     def markMine(self, cell):
@@ -101,16 +101,14 @@ class MinesweeperAI:
         """
         Called when the Minesweeper board tells us, for a given
         safe cell, how many neighboring cells have mines in them.
-
-        This function should:
-            1) mark the cell as a move that has been made
-            2) mark the cell as safe
-            3) add a new sentence to the AI's knowledge base
-               based on the value of `cell` and `count`
-            4) mark any additional cells as safe or as mines
-               if it can be concluded based on the AI's knowledge base
-            5) add any new sentences to the AI's knowledge base
-               if they can be inferred from existing knowledge
+        
+        Follows these steps:
+            1. Marks the cell as a move that has been made
+            2. Marks the cell as safe
+            3. Adds new knowledge statements to knowledge base
+            4. Marks any cells as safe or mines in knowledge base
+            5. Optimizes knowledge by removing subsets.
+            6. Marks cells as safes or mines in knowledge base.
         """
 
         # Step 1: Mark the cell as a move that has been made
@@ -119,15 +117,13 @@ class MinesweeperAI:
         # Step 2: Mark the cell as safe
         self.markSafe(cell)
 
-        # Step 3: The function should add a new sentence to the AI’s knowledge base,
-        # based on the value of cell and count, to indicate that count of the cell’s neighbors are mines.
-        # Be sure to only include cells whose state is still undetermined in the sentence.
+        # Step 3: Add new knowledge statements to knowledge base
         self.appendNewKnowledge(cell, count)
 
         # Step 4: Mark cells as safe or mines given knowledge base
         self.markCells()
 
-        # Step 5: Optimize the sentences in the Knowledge by removing subsets.
+        # Step 5: Optimize the knowledge statements in the Knowledge by removing subsets.
         self.checkForOverlaps()
 
         # Step 6: Mark cells as safe or mines given new knowledge base
@@ -135,7 +131,7 @@ class MinesweeperAI:
 
     def markCells(self):
         """
-        This method iterates through all the sentences in knowledge base.
+        This method iterates through all the knowledge in knowledge base.
         Marks any cells as mines or safes if they can be identified.
         """
         for knowledge in self.knowledge:
@@ -155,7 +151,7 @@ class MinesweeperAI:
 
     def appendNewKnowledge(self, cell, count):
         """
-        This method adds new sentences to knowledge
+        This method adds new knowledge to knowledge
         """
         neighbors = []
         # get all the neighbors that are not yet known
@@ -173,27 +169,28 @@ class MinesweeperAI:
 
     def checkForOverlaps(self):
         """
-        This method checks for overlapping sentences and optimizes them.
-        If there is an overlap, trim the overlapping sentence by removing the overlapping part and reduce the
+        This method checks for overlapping knowledge statements and optimizes them.
+        If there is an overlap, trim the overlapping knowledge statement by removing the overlapping part and reduce the
         mine count.
         """
-        index = 0  # Initialize the index variable to keep track of the current index
+        # initialize index and max length for while loop
+        index = 0 
         knowledge_length = len(self.knowledge)
 
         while index < knowledge_length:
-            # get the current sentence
+            # get the current knowledge statement
             currentKnowledge = self.knowledge[index]
             if not len(currentKnowledge.cells):
-                index += 1  # Skip empty sentences
+                index += 1  # Skip empty knowledge statements
                 continue
-            # loop over the inner sentences
-            inner_index = 0  # Initialize the inner index to loop through the knowledge list again
+            # loop over the inner statements
+            inner_index = 0
             while inner_index < knowledge_length:
-                # skip sentences that are the same as current.
+                # skip statements that are the same as current.
                 if inner_index == index:
                     inner_index += 1
                     continue
-                # get the subset sentence (check if that is a subset)
+                # get the subset statements (check if that is a subset)
                 subsetKnowledge = self.knowledge[inner_index]
                 isSubset = self.checkSubset(currentKnowledge.cells, subsetKnowledge.cells)
                 # if there is a subset, we can remove the overlap and the count
@@ -218,9 +215,6 @@ class MinesweeperAI:
         Returns a safe cell to choose on the Minesweeper board.
         The move must be known to be safe, and not already a move
         that has been made.
-
-        This function may use the knowledge in self.mines, self.safes
-        and self.movesMade, but should not modify any of those values.
         """
 
         for i in range(self.rows):
@@ -233,9 +227,7 @@ class MinesweeperAI:
     def makeRandomMove(self):
         """
         Returns a move to make on the Minesweeper board.
-        Should choose randomly among cells that:
-            1) have not already been chosen, and
-            2) are not known to be mines
+        Should choose randomly among cells that have not already been chosen, and are not known to be mines.
         """
         currentMove = None
         randomMoveFound = False
