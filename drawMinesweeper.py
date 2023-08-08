@@ -1,15 +1,38 @@
+"""
+This file implements the gameplay for the Minesweeper game. 
+Draws the game board and handles user actions. 
+"""
 from cmu_graphics import *
 import random
 from PIL import Image
 import copy
 from minesweeperAI import *
+import time
+
+class Background:
+    """
+    This class draws the background
+    
+    Citations: Drawing image functionality learned from CMU Graphics Demos
+    Got the image for the bomb from this url.
+    https://www.vecteezy.com/vector-art/2948764-pixel-background-the-concept-of-games-background
+    """
+    def __init__(self):
+        # open the image and save it in a class variable
+        self.background = Image.open('grass.jpeg')
+        self.background = CMUImage(self.background)
+    
+    def draw(self, left, top, width, height):
+        # draw the image
+        drawImage(self.background,left,top,width=width,height=height)
 
 class Bomb:
     """
     This class initializes the bomb that will be drawn on the board.
     Called when the user clicks on a bomb cell.
     
-    Citations: Got the image for the bomb from this url.
+    Citations: Drawing image functionality learned from CMU Graphics Demos
+    Got the image for the bomb from this url.
     https://www.pngegg.com/en/png-cbukd
     """
     def __init__(self):
@@ -20,13 +43,49 @@ class Bomb:
     def draw(self, left, top, width, height):
         # draw the image
         drawImage(self.bomb,left,top,width=width,height=height)
+        
+class BombGif:
+    """
+    This class creates an exploding bomb that will be drawn on the board.
+    Called as soon as the user clicks on a bomb.
+    
+    Citations: Used the CMU Graphics Demo Folder Provided to Draw GIF's
+    Got the image for the bomb from this url.
+    https://tenor.com/view/bomb-joypixels-bombing-explode-blast-gif-17542148
+    """
+    def __init__(self):
+        # Load the gif
+        myGif = Image.open('bomb.gif')
+        self.spriteList = []
+        # seek all the frame of the gif and append
+        for frame in range(myGif.n_frames):
+            myGif.seek(frame)
+            fr = myGif.resize((myGif.size[0]//2, myGif.size[1]//2))
+            fr = fr.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            fr = CMUImage(fr)
+            self.spriteList.append(fr)
+
+        # Fix for broken transparency on frame 0
+        self.spriteList.pop(0)
+        self.frameIndex = 0
+        self.steps = 0
+    
+    def draw(self, left, top, width, height):
+        drawImage(self.spriteList[self.frameIndex],
+                left, top, width=width, height=height)
+    
+    def doStep(self):
+        self.steps += 1
+        if self.steps % 3 == 0:
+            self.frameIndex = (self.frameIndex + 1) % (len(self.spriteList))
 
 class Flag:
     """
     This class initializes the flag that will be drawn on the board.
     Called when the user clicks on a cell with the flag cursor active.
     
-    Citations: Got the image for the flag from this url.
+    Citations: Drawing image functionality learned from CMU Graphics Demos
+    Got the image for the flag from this url.
     https://www.iconfinder.com/icons/3024770/flag_flags_marker_nation_icon
     """
     def __init__(self):
@@ -67,10 +126,9 @@ class Minesweeper:
         self.mines = set()
         self.clickedCells = set()
         self.floodedCells = set()
-        # assign the mines to the mine set
-        self.assignMines()
         # initialize the bomb 
         self.bomb = Bomb()
+        self.bombGif = BombGif()
         # game over bool
         self.gameOver = False
         # flag coords
@@ -88,29 +146,49 @@ class Minesweeper:
         self.AI = MinesweeperAI(self.rows, self.cols)
         self.clickFlag = False
         self.flagCells = set()
-        # print(self.mines)
-        # print("----------------------")
-        # for row in self.grid:
-        #     print(row)
+        # first list coords
+        self.firstCell = None
+        self.initialSafes = set()
+        self.firstFlood = False
+        # delta values to change the row and column of the cell
+        self.deltaValues = [-1, 0, 1]
+        # save coords
+        self.saveLeft = 15
+        self.saveTop = 700
+        self.loadLeft = self.boardLeft + self.boardWidth + 40
+        self.loadTop = 700
+        self.saveWidth = 100
+        
+    def setBoard(self):
+        """
+        This function generates a board with mines, given the first cell was 
+        clicked.
+        """
+        # get the neighbors of the first safe cell
+        neighbors = self.getNeighboringCells(self.firstCell)
+        # add the initial cell and all its neighbors to a initial safe set
+        self.initialSafes.add(self.firstCell)
+        for neighbor in neighbors:
+            self.initialSafes.add(neighbor)
+        # randomly assign mines outside of the safe cells.
+        self.assignMines()
+        # indicate that we want to draw a floodfill from the first click
+        self.drawFloodFill(self.firstCell)
     
     def assignMines(self):
         """
-        This function randomly assigns the designated number of mines on the grid.
+        This function randomly assigns the designated number of mines on the 
+        grid.
         Stores them in the self.mines set.
-        """
+        """     
         # randomly place 10 mines on the grid
-        for _ in range(self.numberOfMines):
-            mineRow = random.randrange(self.rows)
-            mineCol = random.randrange(self.cols)
-            # check if the randomly generated mine is not in the mine set
-            if (mineRow, mineCol) not in self.mines:
-                self.mines.add((mineRow, mineCol))
-                self.grid[mineRow][mineCol] = True
-        # if there are any mines missing, add until there are 10 mines
         while len(self.mines) != self.numberOfMines:
+            # add mine row and col
             mineRow = random.randrange(self.rows)
             mineCol = random.randrange(self.cols)
-            if (mineRow, mineCol) not in self.mines:
+            # add to mine set and set value to True
+            if ((mineRow, mineCol) not in self.mines and 
+                (mineRow, mineCol) not in self.initialSafes):
                 self.mines.add((mineRow, mineCol))
                 self.grid[mineRow][mineCol] = True
     
@@ -122,12 +200,12 @@ class Minesweeper:
         # iterate through all the cell's neighbors
         # check if there is a mine in one of the cells
         mineCount = 0
-        deltaValues = [-1, 0, 1]
-        for drow in deltaValues:
-            for dcol in deltaValues:
+        for drow in self.deltaValues:
+            for dcol in self.deltaValues:
                 examinedRow = cell[0] + drow
                 examinedCol = cell[1] + dcol
-                if (0 <= examinedRow < self.rows) and (0 <= examinedCol < self.cols):
+                if ((0 <= examinedRow < self.rows) and 
+                    (0 <= examinedCol < self.cols)):
                     if self.grid[examinedRow][examinedCol]:
                         # increment mine count by 1
                         mineCount += 1
@@ -144,48 +222,76 @@ class Minesweeper:
         self.drawFlagButton()
         # draw button for AI 
         self.drawAIButton()
+        self.drawSaveButton()
+        self.drawLoadButton()
     
     def drawAIButton(self):
         """
-        Part of the drawing functionality, draws the box that will make an AI Move.
+        Part of the drawing functionality, draws the box that will make 
+        an AI Move.
         """
         # draw the box
-        drawRect(self.AIBoxLeft, self.AIBoxTop, self.AIBoxWidth, self.AIBoxHeight, fill='green')
+        drawRect(self.AIBoxLeft, self.AIBoxTop, self.AIBoxWidth, 
+                 self.AIBoxHeight, fill='green')
         # draw a label
-        drawLabel("Click to make an AI Move!", self.AIBoxLeft + self.AIBoxWidth//2, 
+        drawLabel("Click to make an AI Move!", 
+                  self.AIBoxLeft + self.AIBoxWidth//2, 
                     self.AIBoxTop + self.AIBoxHeight//2, fill='white', 
                     size = 15, font='monospace', bold=True)
         
+    
+    def drawSaveButton(self):
+        """
+        Part of the drawing functionality, draws the box that will save 
+        an AI Move.
+        """
+        # draw the box
+        drawRect(self.saveLeft, self.saveTop, self.saveWidth, self.AIBoxHeight, fill='white')
+        # # draw a label
+        drawLabel("Save", 15 + 100//2, 700 + self.AIBoxHeight//2, fill='black', 
+                     size = 15, font='monospace', bold=True)
+    
+    def drawLoadButton(self):
+        """
+        Part of the drawing functionality, draws the box that will Load 
+        an AI Move.
+        """
+        # draw the box
+        drawRect(self.loadLeft, self.loadTop, self.saveWidth, 
+                 self.AIBoxHeight, fill='white')
+        # # draw a label
+        drawLabel("Load", 
+                  self.loadLeft + self.saveWidth//2, 
+                    self.loadTop + self.AIBoxHeight//2, fill='black', 
+                    size = 15, font='monospace', bold=True)
+           
     def drawFlagButton(self):
         """
-        Part of the drawing functionality, draws the box that will allow flagging of cells.
+        Part of the drawing functionality, draws the box that will allow 
+        flagging of cells.
         """
         # draw the box
         drawRect(self.flagBoxLeft, self.flagBoxTop, self.flagBoxWidth, 
                 self.flagBoxHeight, fill='orange')
         # draw a label
-        drawLabel("Click to set flag cursor", self.flagBoxLeft + self.flagBoxWidth//2, 
+        drawLabel("Click to set flag cursor", 
+                  self.flagBoxLeft + self.flagBoxWidth//2, 
                     self.flagBoxTop + self.flagBoxHeight//2, fill='white', 
                     size = 15, font='monospace', bold=True)
         
     def drawBoard(self):
         """
         This function draws the board and each individual cell, keeping in
-        track any conditions each cell may be under (a potential bomb, flag, or normal count).
+        track any conditions each cell may be under 
+        (a potential bomb, flag, or normal count).
         """
         # iterate through the length of the board
         for row in range(self.rows):
             for col in range(self.cols):
-                # debug feature to show all the mines
-                # color = None
-                # if (row, col) in self.mines:
-                #     color = 'red'
-                # # draw the cell 
-                # self.drawCell(row, col, color)
                 cell = (row, col)
                 # draw the cell in corresponding color
                 if cell in self.floodedCells:
-                    self.drawCell(cell, 'white')
+                    self.drawCell(cell, 'lightGreen')
                 else:
                     self.drawCell(cell)
                 # draw the flag on the selected cell
@@ -193,24 +299,42 @@ class Minesweeper:
                     self.drawFlag(cell)
                 # draw a bomb if a mine is clicked without the flag setting
                 elif cell in self.clickedCells and self.grid[row][col]:
-                    self.drawBomb(cell)
                     self.gameOver = True
+                    self.drawBombGif(cell)
+                    self.drawAllBombs()
+                    # self.drawBomb(cell)
                 # otherwise, get the count and draw the count of nearest mines
                 elif cell in self.clickedCells and not self.grid[row][col]:
                     count = self.getNeighboringMineCount(cell)
-                    # if the count is 0, floodfill the other neighbors that are 0
+                    # if the count is 0, floodfill the other neighbors 
+                    # that are 0
                     if count == 0:
                         self.drawFloodFill(cell)
                     else:   
                         self.drawCount(count, cell)
-                        
-    def drawFloodFill(self, cell, visited=None):
+    
+    def drawAllBombs(self):
         """
-        This function is called when a specific cell is clicked, and has a count of 0.
-        Recursively checks all neighbors to see if any of them have a count of 0. 
-        'clears' all the cells by drawing them as white, to make the game easier.
+        This function draws all the bombs in red if a mine is clicked
+        """
+        for mine in self.mines:
+            # if the game is over, draw all the mines
+            # change cell color to red
+            if mine not in self.clickedCells:
+                self.drawCell(mine, 'red')
+                self.drawBomb(mine)
+                        
+    def drawFloodFill(self, cell):
+        """
+        This function is called when a specific cell is clicked, 
+        and has a count of 0.
+        Recursively checks all neighbors to see if any of them have a 
+        count of 0. 
+        'clears' all the cells by drawing them as grey, to make the game 
+        easier.
         Takes in a specific cell given by (row, col) as input.
         """
+        # if the cell is in the flooded set, return without doing anything.
         if cell in self.floodedCells:
             return
         # add the cell to the AI's knowledge
@@ -219,12 +343,13 @@ class Minesweeper:
         if self.getNeighboringMineCount(cell) != 0:
             self.clickedCells.add(cell)
             return
-        # add the cell to the visited set
+        # add the cell to the flooded set
         self.floodedCells.add(cell)
         # get all the neighboring cells
         neighbors = self.getNeighboringCells(cell)
         # iterate through all neighbors
         for neighbor in neighbors:
+            # recursively call on all the neighbors
             self.drawFloodFill(neighbor)
             
     def getNeighboringCells(self, cell):
@@ -235,12 +360,15 @@ class Minesweeper:
         # iterate through all the cell's neighbors
         # add to list if valid cell
         neighbors = []
-        deltaValues = [-1, 0, 1]
-        for drow in deltaValues:
-            for dcol in deltaValues:
+        # iterate through all possible combinations of drow and col
+        for drow in self.deltaValues:
+            for dcol in self.deltaValues:
+                # get the examined row and col of the neighbor
                 examinedRow = cell[0] + drow
                 examinedCol = cell[1] + dcol
-                if (0 <= examinedRow < self.rows) and (0 <= examinedCol < self.cols):
+                # check if the neighbor is a valid neighbor and append to list
+                if ((0 <= examinedRow < self.rows) 
+                    and (0 <= examinedCol < self.cols)):
                         neighbors.append((examinedRow, examinedCol))
         return neighbors
         
@@ -253,7 +381,17 @@ class Minesweeper:
         cellLeft, cellTop = self.getCellLeftTop(cell)
         cellWidth, cellHeight = self.getCellSize()
         self.bomb.draw(cellLeft, cellTop, cellWidth, cellHeight)
-        
+    
+    def drawBombGif(self, cell):
+        """
+        This function draws the bomb gif when called.
+        Takes in a specific cell given by (row, col) to draw the bomb on.
+        """
+        # get dimensions
+        cellLeft, cellTop = self.getCellLeftTop(cell)
+        cellWidth, cellHeight = self.getCellSize()
+        self.bombGif.draw(cellLeft, cellTop, cellWidth, cellHeight)
+    
     def drawFlag(self, cell):
         """
         This function draws the flag when called. 
@@ -269,8 +407,9 @@ class Minesweeper:
         This function draws the board border (part of drawing grid)
         """
         # draw board border with double thickness
-        drawRect(self.boardLeft, self.boardTop, self.boardWidth, self.boardHeight,
-           fill=None, border='white',
+        drawRect(self.boardLeft, self.boardTop, self.boardWidth, 
+                 self.boardHeight,
+           fill=None, border ='black',
            borderWidth=2*self.cellBorderWidth)
     
     def drawCell(self, cell, fillColor=None):
@@ -282,13 +421,13 @@ class Minesweeper:
         cellLeft, cellTop = self.getCellLeftTop(cell)
         cellWidth, cellHeight = self.getCellSize()
         drawRect(cellLeft, cellTop, cellWidth, cellHeight,
-                fill=fillColor, border='white',
+                fill=fillColor, border='black',
                 borderWidth=self.cellBorderWidth)
     
     def drawCount(self, count, cell):
         """
-        This function draws the count of the neighboring mines on a particular cell, 
-        given by (row, col).
+        This function draws the count of the neighboring mines on a 
+        particular cell, given by (row, col).
         
         Takes in the count, row, and col of the cell as input.
         """
@@ -298,11 +437,12 @@ class Minesweeper:
         drawLabel(count,
                   cellLeft + cellWidth//2,
                   cellTop + cellHeight//2,
-                  size=20, fill='white')
+                  size=20, fill='white', bold=True)
         
     def getCellLeftTop(self, cell):
         """
-        This helper function (used to draw the cell), gets the cell's left and top coords.
+        This helper function (used to draw the cell), gets the cell's left and 
+        top coords.
         """
         # get the cell's left, top position
         cellWidth, cellHeight = self.getCellSize()
@@ -337,21 +477,32 @@ class Minesweeper:
                 # check if the mouse was clicked on the cell
                 if ((cellLeft <= mouseX <= cellLeft + cellWidth) and 
                         (cellTop <= mouseY <= cellTop + cellHeight)):
-                    count = self.getNeighboringMineCount(cell)
-                    # add the cell to the AI's knowledge if it is a safe cell'
-                    if (row, col) not in self.mines:
-                        self.AI.addKnowledge(cell, count)
-                    self.clickedCells.add(cell)
-                    # if we are clicking a flag
-                    if self.clickFlag:
-                        self.flagCells.add(cell)
-                        self.clickFlag = False
+                    # check if the click was the first click
+                    if self.firstCell == None:
+                        self.firstCell = cell
+                        # add to the AI's knowledge
+                        self.AI.addKnowledge((row, col), 0)
+                        # add to clicked cells
+                        self.clickedCells.add((row, col))
+                        self.setBoard()
+                    else:
+                        count = self.getNeighboringMineCount(cell)
+                        # add the cell to the AI's knowledge if it is a 
+                        # safe cell'
+                        if (row, col) not in self.mines:
+                            self.AI.addKnowledge(cell, count)
+                        self.clickedCells.add(cell)
+                        # if we are clicking a flag
+                        if self.clickFlag and cell not in self.floodedCells:
+                            self.flagCells.add(cell)
+                            self.clickFlag = False
                         
     def getAICell(self, cell):
         """
         This function is called by main when the AI is trying to make a move.
-        Takes in a row, col as input, and adds to the AI's knowledge based on the count of that cell.
-        Adds to clicked cells
+        Takes in a row, col as input, and adds to the AI's knowledge based on 
+        the count of that cell.
+        Adds to clicked cells.
         """
         # find the cell
         for rowIndex in range(self.rows):
@@ -359,19 +510,28 @@ class Minesweeper:
                 row, col = cell[0], cell[1]
                 # if this is the cell
                 if row == rowIndex and colIndex == col:
-                    # get the count of the cell
-                    count = self.getNeighboringMineCount(cell)
-                    # add to the AI's knowledge
-                    self.AI.addKnowledge((row, col), count)
-                    # add to clicked cells
-                    self.clickedCells.add((row, col))
+                    # check if the click was the first click
+                    if self.firstCell == None:
+                        self.firstCell = cell
+                        # add to the AI's knowledge
+                        self.AI.addKnowledge((row, col), 0)
+                        # add to clicked cells
+                        self.clickedCells.add((row, col))
+                        self.setBoard()
+                    else:
+                        # get the count of the cell
+                        count = self.getNeighboringMineCount(cell)
+                        # add to the AI's knowledge
+                        self.AI.addKnowledge((row, col), count)
+                        # add to clicked cells
+                        self.clickedCells.add((row, col))
                     break
     
     def checkWin(self):
         """
         This function is called by main to check if we have won the game
-        Game is won either when the user has flagged all the mines OR if the user clicks on all the safe cells
-        OR if the AI knows all the mines.
+        Game is won either when the user has flagged all the mines 
+        OR if the user clicks on all the safe cells.
         """
         # return True if the win condition is satisfied
         if (self.cells - self.clickedCells == self.mines or 

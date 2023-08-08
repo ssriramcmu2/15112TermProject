@@ -1,10 +1,14 @@
+"""
+This file handles the AI agent that makes the best move given the state of the 
+game board. 
+"""
 import random
 
 """   
 Citations: (Used these sources to get an idea on how to incorporate AI into the project)
-    http://nebula.wsimg.com/8ecbfd87953e91c5b969c020b63bfc5c?AccessKeyId=1AF96B41F86A131EDF19&disposition=0&alloworigin=1
-    https://github.com/aditya1702/Machine-Learning-and-Data-Science/blob/master/Minesweeper%20AI%20Bot/Minesweeper.pdf
-    https://cs50.harvard.edu/extension/ai/2020/spring/projects/1/minesweeper/
+    1. https://cs50.harvard.edu/extension/ai/2020/spring/projects/1/minesweeper/
+    2. http://nebula.wsimg.com/8ecbfd87953e91c5b969c020b63bfc5c?AccessKeyId=1AF96B41F86A131EDF19&disposition=0&alloworigin=1
+    3. https://github.com/aditya1702/Machine-Learning-and-Data-Science/blob/master/Minesweeper%20AI%20Bot/Minesweeper.pdf   
 """
 
 class Knowledge:
@@ -18,16 +22,20 @@ class Knowledge:
         self.count = count
 
     def __eq__(self, other):
-        return self.cells == other.cells and self.count == other.count
+        # sentences are equal when their cells and counts are the same
+        return (isinstance(other, Knowledge) 
+                and self.cells == other.cells and self.count == other.count)
 
     def __repr__(self):
-        return f"{self.cells} = {self.count}"
+        # return a string of the cells that are mines
+        return f"{self.cells}={self.count}"
 
     def knownMines(self):
         """
         Returns a set of all cells that are known to be mines
         """
-        # if the amount of cells in the statement equals the count, then all the cells are mines
+        # if the amount of cells in the statement equals the count, 
+        # then all the cells are mines
         if self.count == 0 or not len(self.cells):
             return None
         if len(self.cells) == self.count:
@@ -64,8 +72,8 @@ class Knowledge:
 
 class MinesweeperAI:
     """
-    This class represents the AI player, which will make smart moves as the game progresses and new Knowledge is attained.
-    
+    This class represents the AI player, which will make smart moves 
+    as the game progresses and new Knowledge is attained.
     """
 
     def __init__(self, rows, cols):
@@ -110,7 +118,8 @@ class MinesweeperAI:
         # Step 4: Mark cells as safe or mines given knowledge base
         self.markCells()
 
-        # Step 5: Optimize the knowledge statements in the Knowledge by removing subsets.
+        # Step 5: Optimize the knowledge statements in the Knowledge by 
+        # removing subsets.
         self.checkForOverlaps()
 
         # Step 6: Mark cells as safe or mines given new knowledge base
@@ -141,15 +150,18 @@ class MinesweeperAI:
         Marks any cells as mines or safes if they can be identified.
         """
         for knowledge in self.knowledge:
+            # get the retrieved safe cells and mine cells
             retrievedSafeCells = knowledge.knownSafes()
             retrievedMineCells = knowledge.knownMines()
             # iterate through copy of the cells so that we don't modify them
             if retrievedSafeCells:
+                # iterate and mark/add safe cells
                 for safeCell in retrievedSafeCells.copy():
                     if safeCell and safeCell not in self.safes:
                         self.markSafe(safeCell)
                         self.safes.add(tuple(safeCell))
             if retrievedMineCells:
+                # iterate and mark/add mine cells
                 for mineCell in retrievedMineCells.copy():
                     if mineCell and mineCell not in self.mines:
                         self.markMine(mineCell)
@@ -163,21 +175,24 @@ class MinesweeperAI:
         # get all the neighbors that are not yet known
         for i in range(cell[0] - 1, cell[0] + 2):
             for j in range(cell[1] - 1, cell[1] + 2):
-                if (i, j) == cell or (i, j) in self.movesMade or not (0 <= i < self.rows and 0 <= j < self.cols):
+                if ((i, j) == cell or (i, j) in self.movesMade 
+                    or not (0 <= i < self.rows and 0 <= j < self.cols)):
                     continue
                 if (i, j) in self.safes:
                     continue
                 neighbors.append((i, j))
         if not len(neighbors):
             return None
+        # add new sentence to knowledge
         newKnowledge = Knowledge(neighbors, count)
         self.knowledge.append(newKnowledge)
 
     def checkForOverlaps(self):
         """
-        This method checks for overlapping knowledge statements and optimizes them.
-        If there is an overlap, trim the overlapping knowledge statement by removing the overlapping part and reduce the
-        mine count.
+        This method checks for overlapping knowledge statements and optimizes 
+        them.
+        If there is an overlap, trim the overlapping knowledge statement by 
+        removing the overlapping part and reduce the mine count.
         """
         # initialize index and max length for while loop
         index = 0 
@@ -198,7 +213,8 @@ class MinesweeperAI:
                     continue
                 # get the subset statements (check if that is a subset)
                 subsetKnowledge = self.knowledge[inner_index]
-                isSubset = self.checkSubset(currentKnowledge.cells, subsetKnowledge.cells)
+                isSubset = self.checkSubset(currentKnowledge.cells, 
+                                            subsetKnowledge.cells)
                 # if there is a subset, we can remove the overlap and the count
                 if isSubset:
                     for cell in currentKnowledge.cells:
@@ -209,7 +225,8 @@ class MinesweeperAI:
             
     def checkSubset(self, inner, outer):
         """
-        This function checks if the provided inner set is a subset of the provided outer set
+        This function checks if the provided inner set is a subset of the 
+        provided outer set
         """
         for elem in inner:
             if elem not in outer:
@@ -225,14 +242,16 @@ class MinesweeperAI:
         for i in range(self.rows):
             for j in range(self.cols):
                 currentMove = (i, j)
-                if currentMove not in self.movesMade and currentMove in self.safes:
+                if (currentMove not in self.movesMade 
+                    and currentMove in self.safes):
                     return currentMove
         return None
 
     def makeRandomMove(self):
         """
         Returns a move to make on the Minesweeper board.
-        Should choose randomly among cells that have not already been chosen, and are not known to be mines.
+        Should choose randomly among cells that have not already been chosen, 
+        and are not known to be mines.
         """
         currentMove = None
         randomMoveFound = False
@@ -240,7 +259,11 @@ class MinesweeperAI:
             # Game over. All mines identified.
             return None
         while not randomMoveFound:
-            currentMove = (random.randrange(self.rows), random.randrange(self.cols))
-            if currentMove not in self.movesMade and currentMove not in self.mines:
+            # generate random move 
+            currentMove = (random.randrange(self.rows), 
+                           random.randrange(self.cols))
+            # check if random move is valid
+            if (currentMove not in self.movesMade 
+                and currentMove not in self.mines):
                 randomMoveFound = True
         return currentMove
