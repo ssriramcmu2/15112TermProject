@@ -202,7 +202,8 @@ class MinesweeperAI:
             # get the current knowledge statement
             currentKnowledge = self.knowledge[index]
             if not len(currentKnowledge.cells):
-                index += 1  # Skip empty knowledge statements
+                # Skip empty knowledge statements
+                index += 1  
                 continue
             # loop over the inner statements
             inner_index = 0
@@ -239,12 +240,14 @@ class MinesweeperAI:
         The move must be known to be safe, and not already a move
         that has been made.
         """
+        # iterate through the rows and columns and find first safe move
         for i in range(self.rows):
             for j in range(self.cols):
                 currentMove = (i, j)
                 if (currentMove not in self.movesMade 
                     and currentMove in self.safes):
                     return currentMove
+        # return None if no safe moves can be found
         return None
 
     def makeRandomMove(self):
