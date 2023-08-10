@@ -41,11 +41,13 @@ def restartApp(app):
     app.unlimitedLeft = 75
     app.limitedLeft = 300
     app.noLeft = 525
-    app.AIClicks = 0
     # back button coords
     app.backCoord = 20
+    # help button coords
+    app.helpX, app.helpY = app.width//2 - 50 , app.height-325
+    app.messageColor = 'black'
 
-# helper functions
+# helper functions ------------------------------------------------
 
 def drawBackButton(app):
     drawRect(app.backCoord, app.backCoord, 75, 75, fill='yellow', 
@@ -54,7 +56,14 @@ def drawBackButton(app):
               app.backCoord + 75//2, font='fantasy', fill='black', 
               size=20, bold=True)
     
-# welcome screen
+def drawHelpButton(app):
+    drawRect(app.helpX, app.helpY, 75, 75, fill='yellow', 
+             border='black')
+    drawLabel("HELP", app.helpX + 75//2, 
+              app.helpY + 75//2, font='fantasy', fill='black', 
+              size=20, bold=True)
+    
+# welcome screen -------------------------------------------------------
 
 def welcome_redrawAll(app):
     # draw grass background
@@ -65,18 +74,19 @@ def welcome_redrawAll(app):
                     app.height, lineWidth =1, fill='green')
     # draw 9 lines horizontally
     for i in range(9):
-        drawLine(0, app.height/9 + i * 100, app.width, app.height/9 + i * 100,
-                lineWidth =1, fill='green')
+        drawLine(0, app.height/9 + i * 100, app.width, 
+                    app.height/9 + i * 100, lineWidth =1, fill='green')
     # draw the label
     drawLabel("Mine Smarter!", app.width/2, 120, size = 100, font='fantasy', 
-              fill='red', bold = True)
+            fill='red', bold = True)
     # draw a flashing text symbol telling the user to press space
     if app.textShown:
         drawLabel("Press space to begin!", app.width//2 , app.height-200, 
                     size = app.textSize, font='fantasy', fill='black', 
                     bold=True)
     drawLabel(f"Mode = {app.mode}", app.width/2, 240, size=35, 
-              font='fantasy', fill='black', bold=True)
+            font='fantasy', fill='black', bold=True)
+    drawHelpButton(app)
     # draw the difficulty boxes
     welcome_drawUnlimitedBox(app)
     welcome_drawLimitedBox(app)
@@ -138,6 +148,12 @@ def welcome_onMousePress(app, mouseX, mouseY):
         app.maxAIMoves = 0
         app.mode = 'No AI'
     
+    if (app.helpX <= mouseX <=
+        app.helpX + 75
+        and 
+        app.helpY <= mouseY <= 
+        app.helpY + 75):
+        setActiveScreen('tutorial')
 
 def welcome_onKeyPress(app, key):
     if key == 'space':
@@ -146,15 +162,63 @@ def welcome_onKeyPress(app, key):
         app.minesweeper.mode = app.mode
         setActiveScreen('game')
         
-        
-
 def welcome_onStep(app):
     app.stepsPerSecond = 2
     # toggle text
     app.textShown = not app.textShown
+
+# tutorial sceen ----------------------------------------------------
+
+def tutorial_redrawAll(app):
+    # draw background
+    app.backgroundObj.draw(0, 0, app.width, app.height)
+    # draw rectangles
+    drawRect(0, 100, app.width, 630, fill='green', opacity=60)
+    # draw label instructions
+    drawLabel("GOAL: Open all cells that aren't mines.", app.width//2, 
+              60, font='fantasy', size=32, bold=True)
+    drawLabel("1. First click opens the board.", app.width//2,
+              130, font='fantasy', size=25, bold=True, fill='blue')
+    drawLabel("2. Cells show number of neighbors that are mines.", 
+              app.width//2, 200, font='fantasy', size=25, bold=True, 
+              fill='blue')
+    drawLabel("3. Click flag button and then click cell to flag mines (can undo as well).",
+              app.width//2, 270, font='fantasy', size=25, bold=True, 
+              fill='blue')
+    drawLabel("    Remember to keep clicking the button to flag cells!", 
+              app.width//2, 300, font='fantasy', size=25, bold=True,
+              fill='blue')
+    drawLabel("4. Click AI Button to make best move.",
+              app.width//2, 350, font='fantasy', size=25, bold=True, 
+              fill='blue')
+    drawLabel("5. Choose difficulty of how many AI Moves you want.", 
+              app.width//2, 410, font='fantasy', size=25, bold=True, 
+              fill='blue')
+    drawLabel("6. Timer keeps track of how long it takes to solve game.", 
+              app.width//2, 480, font='fantasy', size=25, bold=True,
+              fill='blue')
+    drawLabel("7. High Scores are saved for completing Limited or No AI Difficulties.", 
+              app.width//2, 550, font='fantasy', size=25, bold=True,
+              fill='blue')
+    drawLabel("8. Save games by clicking 'save' button.", 
+              app.width//2, 620, font='fantasy', size=25, bold=True,
+              fill='blue')
+    drawLabel("9. Load saved games by clicking 'load' button.",
+              app.width//2, 690, font='fantasy', size=25, bold=True,
+              fill='blue')
+    drawLabel("Good Luck!", app.width//2, 760, font='fantasy', size=40, bold=True)
+    # draw Back Button
+    drawBackButton(app)
+
+def tutorial_onMousePress(app, mouseX, mouseY):
+    # go back if the back button was clicked
+    if (app.backCoord <= mouseX <= app.backCoord + 75
+        and 
+        app.backCoord <= mouseY <= app.backCoord + 75):
+        setActiveScreen('welcome')
     
 
-# gameplay
+# gameplay --------------------------------------------------------------
 
 def game_redrawAll(app):
     # if the AI is about to make a random move, draw confirmation message on 
@@ -169,8 +233,7 @@ def game_redrawAll(app):
                 fill='red', bold = True)
         if app.message != None:
             drawLabel(app.message, app.width/2, 90, size = app.messageSize, 
-                      font='fantasy', 
-                fill='black', bold = True)
+                      font='fantasy', fill=app.messageColor, bold = True)
         app.minesweeper.drawGrid()
         drawLabel(f"Time: {app.minesweeper.getScore()} sec.", app.width/2, 
                   125, size=app.messageSize, font='fantasy', fill='black', 
@@ -185,21 +248,28 @@ def game_drawMaxAIBox(app):
     """
     maxMoves = None
     if isinstance(app.minesweeper.maxAIMoves, int):
-        maxMoves = str(app.minesweeper.maxAIMoves - app.AIClicks)
+        maxMoves = str(app.minesweeper.maxAIMoves - app.minesweeper.AIClicks)
     # draw rect
     drawRect(app.width-170, 40, 160, 100, fill='white', border='black')
     # draw the number of moves left
-    drawLabel(f"AI Moves Left: {maxMoves}", (app.width-170) + 160//2, 
+    if app.minesweeper.mode != 'Unlimited AI':
+        drawLabel(f"AI Moves Left: {maxMoves}", (app.width-170) + 160//2, 
+              40 + 100//2, fill='black', font='fantasy', size=17, bold=True)
+    else:
+        drawLabel("Unlimited AI Moves", (app.width-170) + 160//2, 
               40 + 100//2, fill='black', font='fantasy', size=17, bold=True)
 
 def game_drawHighScores(app):
     """
     This function prints the top 10 scores of the game
     """
-    drawLabel("Times:", 70, 150, 
-              size=40, font='fantasy',
-              fill='black', bold=True)
-    # draw the top 5 count from app.scores
+    drawLabel("Best", 70, 130,
+              size=30, font='fantasy',
+              fill='blue', bold=True)
+    drawLabel("Times:", 70, 160, 
+              size=30, font='fantasy',
+              fill='blue', bold=True)
+    # draw the top 10 count from app.scores
     count = 0
     for scoreIndex in range(len(app.scores)):
         score = sorted(app.scores)[scoreIndex]
@@ -207,7 +277,7 @@ def game_drawHighScores(app):
         if score == 0:
             continue
         drawLabel(str(score) + " sec.", 70, 150 + 50 * (scoreIndex), 
-                  size = 40, fill = 'black', font='fantasy', bold=True)
+                  size = 30, fill = 'black', font='fantasy', bold=True)
         count += 1
         if count >= 10:
             break
@@ -256,11 +326,15 @@ def game_onMousePress(app, mouseX, mouseY):
             with open(app.pickleFilename, 'wb') as file:
                 # sound files can't be saved, so temporarily set to None
                 app.minesweeper.bombSound = None
-                app.minesweeper.beepSound = None       
+                app.minesweeper.beepSound = None
+                app.minesweeper.victorySound = None   
+                app.minesweeper.flagSound = None    
                 pickle.dump(app.minesweeper, file)
                 # set them back
                 app.minesweeper.bombSound = soundPlay('explosion.mp3')
                 app.minesweeper.beepSound = soundPlay('score.mp3')
+                app.minesweeper.victorySound = soundPlay('victory.mp3')
+                app.minesweeper.flagSound = soundPlay('flag.mp3')
             app.message = "Game saved."
 
 
@@ -275,6 +349,8 @@ def game_onMousePress(app, mouseX, mouseY):
                 # reset the sound files back to original
                 app.minesweeper.bombSound = soundPlay('explosion.mp3')
                 app.minesweeper.beepSound = soundPlay('score.mp3')
+                app.minesweeper.victorySound = soundPlay('victory.mp3')
+                app.minesweeper.flagSound = soundPlay('flag.mp3')
             app.message = "Game loaded."
     
         elif (app.minesweeper.flagBoxLeft <= mouseX <=
@@ -288,7 +364,7 @@ def game_onMousePress(app, mouseX, mouseY):
             if app.minesweeper.clickFlag:
                 app.message = 'Flag Cursor ACTIVE'
             else:
-                app.message = 'Press r to restart the game.'
+                app.message = "Press 'r' to restart the game."
             
             
         elif (app.minesweeper.AIBoxLeft <= mouseX <= 
@@ -298,7 +374,7 @@ def game_onMousePress(app, mouseX, mouseY):
             app.minesweeper.AIBoxTop + app.minesweeper.AIBoxHeight):
             # user is trying to make an AI move. 
             if (app.minesweeper.maxAIMoves == None 
-                or app.AIClicks < app.minesweeper.maxAIMoves):
+                or app.minesweeper.AIClicks < app.minesweeper.maxAIMoves):
                 # start wth trying to make a safe move
                 move = game_makeAISafeMove(app)
                 if move == None:
@@ -311,32 +387,41 @@ def game_onMousePress(app, mouseX, mouseY):
                 else:
                     # get the cell
                     app.minesweeper.getAICell(move)
-                app.AIClicks += 1
+                app.minesweeper.AIClicks += 1
             else:
                 app.message = 'Reached max AI Moves!'
         
         else:
             # get the cell given by the click (if exists)
             app.minesweeper.getCell(mouseX, mouseY)
-            app.message = 'Press r to restart the game.'
+            app.message = "Press 'r' to restart the game."
         
 def game_onStep(app):
+    """
+    Citations: 
+    1. Used this tutorial to learn how to add elements to text file
+    https://www.geeksforgeeks.org/reading-writing-text-files-python/
+    """
     # checks the game conditions every step
     # increase the steps per second to make the game faster
     app.stepsPerSecond = 1000
     if app.minesweeper.firstCell != None:
+        # increment the time step
         app.steps += 1
-        if app.steps % 40 == 0:
+        if app.steps % 60 == 0:
             app.minesweeper.stepScore()
     if app.minesweeper.gameOver:
+        # game over, draw bomb exploding and tell user
         app.minesweeper.bombGif.doStep()
         app.message = "Game Over! Press 'r' to restart."
+        app.messageColor = 'red'
         app.gameOver = True
     if app.minesweeper.checkWin() and app.minesweeper.firstCell != None:
         # if the user won, stop all gameplay.
         app.message = "You won! Press 'r' to restart."
+        app.messageColor = 'purple'
         # add scores to the score list and save
-        # only add scores for modes other than unlimited AI
+        # only add scores for modes other than unlimited AI mode
         if not app.scoreWritten and app.minesweeper.maxAIMoves != None:
             app.scores.append(app.minesweeper.timer)
             with open('highScores.txt','w') as file:
